@@ -30,6 +30,7 @@
 </head>
 
 <body>
-  {{.ping}}
+  {{.json}}
+  // {{.hello}}
 </body>
 </html>
