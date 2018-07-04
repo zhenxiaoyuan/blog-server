@@ -7,6 +7,5 @@ import (
 
 func init() {
     beego.Router("/", &controllers.IndexController{})
-    beego.Router("/api/ping", &controllers.PingController{})
-    beego.Router("/api/info", &controllers.InfoController{})
+    beego.Router("/api/article/:id", &controllers.ArticleController{})
 }

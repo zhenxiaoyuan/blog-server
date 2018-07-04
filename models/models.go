@@ -2,49 +2,71 @@ package models
 
 import (
 	"github.com/go-redis/redis"
+	"encoding/json"
 )
 
-func ExampleNewClient() string {
-	client := redis.NewClient(&redis.Options{
-		Addr:		"localhost:6379",
-		Password:	"",
-		DB:			0,
-	})
-
-	pong, err := client.Ping().Result()
-	if err != nil {
-		return err.Error()
-	}
-	
-	return pong
+type Article struct {
+	Title string `json:"title"`
+	Content string `json:"content"`
+	Time string `json:"time"`
+	ReadCount string `json:"readCount"`
+	Classify string `json:"classify"`
 }
 
-func ExampleClient() string {
-	client := redis.NewClient(&redis.Options{
+type Test struct {
+	Title string `json:"title"`
+	Content string `json:"content"`
+	Id string `json:"id"`
+	// ReadCount string `json:"readCount"`
+	// Classify string `json:"classify"`
+}
+
+func HelloRedis() *redis.Client {
+	return redis.NewClient(&redis.Options{
 		Addr:		"localhost:6379",
 		Password:	"",
 		DB:			0,
 	})
+}
 
-	// err := client.Set("name", "zhenhao", 0).Err()
-	// if err != nil {
-	// 	panic(err)
-	// }
+func GetOneArticle(articleId string) string {
+	client := HelloRedis()
 
-	val, err := client.Get("name").Result()
+	val, err := client.HGetAll(articleId).Result()
 	if err != nil {
 		panic(err)
 	}
-	return val
 
+	return getArticleJSON(val)
 }
 
-func TestGetHashTable() map[string]string {
-	client := redis.NewClient(&redis.Options{
-		Addr:		"localhost:6379",
-		Password:	"",
-		DB:			0,
-	})
+func getArticleJSON(val map[string]string) string {
+	var article Article
+
+	article.Title		= val["title"]
+	article.Content 	= val["content"]
+	article.Time		= val["time"]
+	article.ReadCount 	= val["readcount"]
+	article.Classify	= val["classify"]
+
+	var test Test
+
+	test.Title		= val["title"]
+	test.Content 	= val["content"]
+	test.Id			= val["id"]
+	// test.ReadCount 	= val["readcount"]
+	// test.Classify	= val["classify"]
+
+	result, err := json.Marshal(test)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(result)
+}
+
+func GetAllArticles() map[string]string {
+	client := HelloRedis()
 
 	val, err := client.HGetAll("test").Result()
 	if err != nil {
