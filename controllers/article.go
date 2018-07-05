@@ -10,6 +10,10 @@ type ArticleController struct {
 }
 
 func (c *ArticleController) Get()  {
-	c.Data["json"] = models.GetOneArticle(c.Ctx.Input.Param(":id"))
+	if c.Ctx.Input.Param(":id") == "all" {
+		c.Data["json"] = models.GetAllArticles()
+	} else {
+		c.Data["json"] = models.GetOneArticle(c.Ctx.Input.Param(":id"))
+	}
 	c.ServeJSON()
 }

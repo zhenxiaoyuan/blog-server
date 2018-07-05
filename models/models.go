@@ -6,6 +6,11 @@ import (
 )
 
 type Article struct {
+	Id string `json:"id"`
+	Info Info `json:"info"`  
+}
+
+type Info struct {
 	Title string `json:"title"`
 	Content string `json:"content"`
 	Time string `json:"time"`
@@ -29,35 +34,51 @@ func HelloRedis() *redis.Client {
 	})
 }
 
-func GetOneArticle(articleId string) string {
+func GetOneArticle(key string) string {
 	client := HelloRedis()
 
-	val, err := client.HGetAll(articleId).Result()
+	val, err := client.HGetAll(key).Result()
 	if err != nil {
 		panic(err)
 	}
 
-	return getArticleJSON(val)
+	return getArticleJSON(key, val)
 }
 
-func getArticleJSON(val map[string]string) string {
+func GetAllArticles() string {
+	client := HelloRedis()
+
+	val, err := client.SMembers("testset").Result()
+	if err != nil {
+		panic(err)
+	}
+
+	var articles string
+	articles = "["
+	for i := 0; i < len(val); i++ {
+		articles += GetOneArticle(val[i])
+		if i != len(val)-1 {
+			articles += ","
+		}
+	}
+	articles += "]"
+
+	return articles
+}
+
+func getArticleJSON(key string, val map[string]string) string {
+	var info Info
+	info.Title		= val["title"]
+	info.Content 	= val["content"]
+	info.Time		= val["time"]
+	info.ReadCount 	= val["readcount"]
+	info.Classify	= val["classify"]
+
 	var article Article
+	article.Id 	= key
+	article.Info = info
 
-	article.Title		= val["title"]
-	article.Content 	= val["content"]
-	article.Time		= val["time"]
-	article.ReadCount 	= val["readcount"]
-	article.Classify	= val["classify"]
-
-	var test Test
-
-	test.Title		= val["title"]
-	test.Content 	= val["content"]
-	test.Id			= val["id"]
-	// test.ReadCount 	= val["readcount"]
-	// test.Classify	= val["classify"]
-
-	result, err := json.Marshal(test)
+	result, err := json.Marshal(article)
 	if err != nil {
 		panic(err)
 	}
@@ -65,13 +86,3 @@ func getArticleJSON(val map[string]string) string {
 	return string(result)
 }
 
-func GetAllArticles() map[string]string {
-	client := HelloRedis()
-
-	val, err := client.HGetAll("test").Result()
-	if err != nil {
-		panic(err)
-	}
-
-	return val
-}
