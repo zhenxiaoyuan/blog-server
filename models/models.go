@@ -1,6 +1,8 @@
 package models
 
 import (
+	"fmt"
+	// "fmt"
 	"github.com/go-redis/redis"
 	"encoding/json"
 )
@@ -48,7 +50,7 @@ func GetOneArticle(key string) string {
 func GetAllArticles() string {
 	client := HelloRedis()
 
-	val, err := client.SMembers("testset").Result()
+	val, err := client.LRange("testlist", 0, -1).Result()
 	if err != nil {
 		panic(err)
 	}
@@ -64,6 +66,31 @@ func GetAllArticles() string {
 	articles += "]"
 
 	return articles
+}
+
+func AddArticle(inputs []byte) string {
+	var article Article
+	json.Unmarshal(inputs, &article)
+
+	client := HelloRedis()
+
+	val, err := client.HMSet(article.Id, map[string]interface{} {
+		"title": article.Info.Title,
+		"content": article.Info.Content,
+		}).Result()
+	fmt.Println(string(val))
+	if err != nil {
+		return "[{result: 'bu ok'}]"
+		panic(err)
+	}
+
+	_, err = client.LPush("testlist", article.Id).Result()
+	if err != nil {
+		return "[{result: 'bu ok'}]"
+		panic(err)
+	}
+
+	return "[{result: 'ok'}]"
 }
 
 func getArticleJSON(key string, val map[string]string) string {
