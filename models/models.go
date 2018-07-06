@@ -1,6 +1,7 @@
 package models
 
 import (
+	"time"
 	"fmt"
 	// "fmt"
 	"github.com/go-redis/redis"
@@ -16,7 +17,7 @@ type Info struct {
 	Title string `json:"title"`
 	Content string `json:"content"`
 	Time string `json:"time"`
-	ReadCount string `json:"readCount"`
+	ReadCount string `json:"readcount"`
 	Classify string `json:"classify"`
 }
 
@@ -69,26 +70,31 @@ func GetAllArticles() string {
 }
 
 func AddArticle(inputs []byte) string {
-	var article Article
-	json.Unmarshal(inputs, &article)
+	var articleInfo Info
+	json.Unmarshal(inputs, &articleInfo)
 
-	client := HelloRedis()
+	// client := HelloRedis()
 
-	val, err := client.HMSet(article.Id, map[string]interface{} {
-		"title": article.Info.Title,
-		"content": article.Info.Content,
-		}).Result()
-	fmt.Println(string(val))
-	if err != nil {
-		return "[{result: 'bu ok'}]"
-		panic(err)
-	}
+	fmt.Println( time.Now().Format(time.ANSIC))
 
-	_, err = client.LPush("testlist", article.Id).Result()
-	if err != nil {
-		return "[{result: 'bu ok'}]"
-		panic(err)
-	}
+	// val, err := client.HMSet(article.Id, map[string]interface{} {
+	// 	"title": articleInfo.Title,
+	// 	"content": articleInfo.Content,
+	// 	"classify": articleInfo.Classify,
+	// 	"readcount": "0",
+	// 	"time": time.Now().String(),
+	// 	}).Result()
+	// // fmt.Println(string(val))
+	// if err != nil {
+	// 	return "[{result: 'bu ok'}]"
+	// 	panic(err)
+	// }
+
+	// _, err = client.LPush("testlist", article.Id).Result()
+	// if err != nil {
+	// 	return "[{result: 'bu ok'}]"
+	// 	panic(err)
+	// }
 
 	return "[{result: 'ok'}]"
 }
