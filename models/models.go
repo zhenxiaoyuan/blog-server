@@ -1,9 +1,8 @@
 package models
 
 import (
-	"time"
 	"fmt"
-	// "fmt"
+	"time"
 	"github.com/go-redis/redis"
 	"encoding/json"
 )
@@ -29,6 +28,13 @@ type Test struct {
 	// Classify string `json:"classify"`
 }
 
+var client *redis.Client
+
+func init()  {
+	client = HelloRedis()
+	fmt.Println("Redis clent already initiated !")
+}
+
 func HelloRedis() *redis.Client {
 	return redis.NewClient(&redis.Options{
 		Addr:		"localhost:6379",
@@ -38,7 +44,7 @@ func HelloRedis() *redis.Client {
 }
 
 func GetOneArticle(key string) string {
-	client := HelloRedis()
+	// client := HelloRedis()
 
 	val, err := client.HGetAll(key).Result()
 	if err != nil {
@@ -49,7 +55,7 @@ func GetOneArticle(key string) string {
 }
 
 func GetAllArticles() string {
-	client := HelloRedis()
+	// client := HelloRedis()
 
 	val, err := client.LRange("testlist", 0, -1).Result()
 	if err != nil {
@@ -75,28 +81,58 @@ func AddArticle(inputs []byte) string {
 
 	// client := HelloRedis()
 
-	fmt.Println( time.Now().Format(time.ANSIC))
+	// fmt.Println(time.Now().Format(time.ANSIC))
+	articleId := string(time.Now().Unix())
+	_, err := client.HMSet(articleId, map[string]interface{} {
+		"title": articleInfo.Title,
+		"content": articleInfo.Content,
+		"classify": articleInfo.Classify,
+		"readcount": "0",
+		"time": time.Now().Format(time.ANSIC),
+		}).Result()
+	// fmt.Println(string(val))
+	if err != nil {
+		return "[{result: 'bu ok'}]"
+		// panic(err)
+	}
 
-	// val, err := client.HMSet(article.Id, map[string]interface{} {
+	_, err = client.LPush("testlist", articleId).Result()
+	if err != nil {
+		return "[{result: 'bu ok'}]"
+		// panic(err)
+	}
+
+	return "[{result: 'ok'}]"
+}
+
+func DeleteArticle(inputs []byte) string {
+	var articleId string
+	json.Unmarshal(inputs, &articleId)
+
+	// client := HelloRedis()
+
+	// fmt.Println(time.Now().Format(time.ANSIC))
+	// articleId := time.Now().Unix().String()
+	// _, err := client.HMSet(articleId, map[string]interface{} {
 	// 	"title": articleInfo.Title,
 	// 	"content": articleInfo.Content,
 	// 	"classify": articleInfo.Classify,
 	// 	"readcount": "0",
-	// 	"time": time.Now().String(),
+	// 	"time": time.Now().Format(time.ANSIC),
 	// 	}).Result()
 	// // fmt.Println(string(val))
 	// if err != nil {
 	// 	return "[{result: 'bu ok'}]"
-	// 	panic(err)
+	// 	// panic(err)
 	// }
 
-	// _, err = client.LPush("testlist", article.Id).Result()
+	// _, err = client.LPush("testlist", articleId).Result()
 	// if err != nil {
 	// 	return "[{result: 'bu ok'}]"
-	// 	panic(err)
+	// 	// panic(err)
 	// }
 
-	return "[{result: 'ok'}]"
+	return articleId
 }
 
 func getArticleJSON(key string, val map[string]string) string {

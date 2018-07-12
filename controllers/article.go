@@ -25,7 +25,11 @@ func (c *ArticleController) Post()  {
 	// var ob models.Object
 	// json.Unmarshal(c.Ctx.Input.RequestBody, &ob)
 	// fmt.Println(c.Ctx.Input.RequestBody)
-	c.Data["json"] = models.AddArticle(c.Ctx.Input.RequestBody)
+	if c.Ctx.Input.Param(":id") == "add" {
+		c.Data["json"] = models.AddArticle(c.Ctx.Input.RequestBody)
+	} else {
+		c.Data["json"] = models.DeleteArticle(c.Ctx.Input.RequestBody)
+	}
 	c.ServeJSON()
 
 }
