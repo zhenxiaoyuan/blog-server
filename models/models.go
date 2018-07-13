@@ -106,33 +106,24 @@ func AddArticle(inputs []byte) string {
 }
 
 func DeleteArticle(inputs []byte) string {
-	var articleId string
-	json.Unmarshal(inputs, &articleId)
+	var article Article
+	json.Unmarshal(inputs, &article)
 
-	// client := HelloRedis()
+	// 第二个参数区分从头还是从尾进行查找，后期优化。
+	_, err := client.LRem("testlist", 1, article.Id).Result()
+	// fmt.Println(string(val))
+	if err != nil {
+		return "[{result: 'bu ok'}]"
+		// panic(err)
+	}
 
-	// fmt.Println(time.Now().Format(time.ANSIC))
-	// articleId := time.Now().Unix().String()
-	// _, err := client.HMSet(articleId, map[string]interface{} {
-	// 	"title": articleInfo.Title,
-	// 	"content": articleInfo.Content,
-	// 	"classify": articleInfo.Classify,
-	// 	"readcount": "0",
-	// 	"time": time.Now().Format(time.ANSIC),
-	// 	}).Result()
-	// // fmt.Println(string(val))
-	// if err != nil {
-	// 	return "[{result: 'bu ok'}]"
-	// 	// panic(err)
-	// }
+	_, err = client.Del(article.Id).Result()
+	if err != nil {
+		return "[{result: 'bu ok'}]"
+		// panic(err)
+	}
 
-	// _, err = client.LPush("testlist", articleId).Result()
-	// if err != nil {
-	// 	return "[{result: 'bu ok'}]"
-	// 	// panic(err)
-	// }
-
-	return articleId
+	return "{articleId: " + article.Id + "}"
 }
 
 func getArticleJSON(key string, val map[string]string) string {
