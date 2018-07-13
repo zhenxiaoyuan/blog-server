@@ -1,6 +1,11 @@
 package models
 
 import (
+	"encoding/hex"
+	// "strconv"
+	"crypto/md5"
+	"io"
+	// "crypto/sha1"
 	"fmt"
 	"time"
 	"github.com/go-redis/redis"
@@ -79,10 +84,7 @@ func AddArticle(inputs []byte) string {
 	var articleInfo Info
 	json.Unmarshal(inputs, &articleInfo)
 
-	// client := HelloRedis()
-
-	// fmt.Println(time.Now().Format(time.ANSIC))
-	articleId := string(time.Now().Unix())
+	articleId := getArticleId(articleInfo.Title)
 	_, err := client.HMSet(articleId, map[string]interface{} {
 		"title": articleInfo.Title,
 		"content": articleInfo.Content,
@@ -124,6 +126,23 @@ func DeleteArticle(inputs []byte) string {
 	}
 
 	return "{articleId: " + article.Id + "}"
+}
+
+// func isArticleExist(articleTitle string) bool {
+// 	val, err := client.LRange("testlist", 0, -1).Result()
+// 	if err != nil {
+// 		return false
+// 	}
+
+// 	for _, article
+// }
+
+func getArticleId(articleTitle string) string {
+	hasher := md5.New()
+	b := []byte{}
+	io.WriteString(hasher, articleTitle)
+	
+	return hex.EncodeToString(hasher.Sum(b))
 }
 
 func getArticleJSON(key string, val map[string]string) string {
