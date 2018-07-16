@@ -9,5 +9,6 @@ type IndexController struct {
 }
 
 func (c *IndexController) Get() {
-	c.TplName = "index.html"
+	c.Data["json"] = "[{result: 'ok'}]"
+	c.ServeJSON()
 }

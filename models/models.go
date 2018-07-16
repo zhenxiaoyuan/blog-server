@@ -107,6 +107,33 @@ func AddArticle(inputs []byte) string {
 	return "[{result: 'ok'}]"
 }
 
+func UpdateArticle(inputs []byte) string {
+	var articleInfo Info
+	json.Unmarshal(inputs, &articleInfo)
+
+	// 记得修正数据结构，在传输过程中通过id控制数据
+	// 在前端应该加一层校验，如果没有做修改，就不需要回传了
+	articleId := getArticleId(articleInfo.Title)
+	_, err := client.HMSet(articleId, map[string]interface{} {
+		"title": articleInfo.Title,
+		"content": articleInfo.Content,
+		"classify": articleInfo.Classify,
+		}).Result()
+	// fmt.Println(string(val))
+	if err != nil {
+		return "[{result: 'bu ok'}]"
+		// panic(err)
+	}
+
+	// _, err = client.LPush("testlist", articleId).Result()
+	// if err != nil {
+	// 	return "[{result: 'bu ok'}]"
+	// 	// panic(err)
+	// }
+
+	return "[{result: 'ok'}]"
+}
+
 func DeleteArticle(inputs []byte) string {
 	var article Article
 	json.Unmarshal(inputs, &article)
