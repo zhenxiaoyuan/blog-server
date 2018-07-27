@@ -23,24 +23,16 @@ type Article struct {
 }
 
 type Result struct {
-	Error bool `json:"error"`
+	// 此处是否可用枚举
+	Type string `json:"type"`
+	// Error bool `json:"error"`
 	Info string `json:"info"`
 }
 
-// type Info struct {
-// 	Title string `json:"title"`
-// 	Content string `json:"content"`
-// 	Time string `json:"time"`
-// 	ReadCount string `json:"readcount"`
-// 	Classify string `json:"classify"`
-// }
-
-// type Test struct {
-// 	Title string `json:"title"`
-// 	Content string `json:"content"`
-// 	Id string `json:"id"`
-// 	// ReadCount string `json:"readCount"`
-// 	// Classify string `json:"classify"`
+// type Return struct {
+// 	Type string `json:"type"`
+// 	RArticle Article `json:"article"`
+// 	RError
 // }
 
 var client *redis.Client
@@ -51,6 +43,7 @@ func init()  {
 	client = HelloRedis()
 	listName = "testlist"
 	listLength, _ = client.LLen(listName).Result()
+
 	fmt.Println("Redis clent already initiated !")
 }
 
@@ -62,30 +55,30 @@ func HelloRedis() *redis.Client {
 	})
 }
 
-func GetOneArticle(key string) string {
-	// client := HelloRedis()
-
-	val, err := client.HGetAll(key).Result()
-	if err != nil {
-		panic(err)
-	}
-
-	return getArticleJSON(key, val)
-}
-
 func GetAllArticles() string {
-	// client := HelloRedis()
+	var articles string
+	var result Result
 
-	val, err := client.LRange(listName, 0, -1).Result()
+	articlesId, err := client.LRange(listName, 0, -1).Result()
 	if err != nil {
-		panic(err)
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Failed to get all articles id in list. ")
+
+		return string(resultJSON)
 	}
 
-	var articles string
 	articles = "["
-	for i := 0; i < len(val); i++ {
-		articles += GetOneArticle(val[i])
-		if i != len(val)-1 {
+	for i := 0; i < len(articlesId); i++ {
+		article, err := client.HGetAll(articlesId[i]).Result()
+		if err != nil {
+			resultJSON := getResultJSON(&result, "error", 
+				"ERROR: Failed to get an article in hash. ")
+
+			return string(resultJSON)
+		}
+		articles += string(getArticleJSON(articlesId[i], article))
+
+		if i != len(articlesId)-1 {
 			articles += ","
 		}
 	}
@@ -96,46 +89,68 @@ func GetAllArticles() string {
 
 func AddArticle(inputs []byte) string {
 	var article Article
+	var result Result
+
 	json.Unmarshal(inputs, &article)
 
 	articleId := getArticleId(article.Title)
+	// 时间格式记得处理
 	currentTime := time.Now().Format(time.ANSIC)
-	// 增加查重操作
-	_, err := client.HMSet(articleId, map[string]interface{} {
+
+	// 查询准备添加的文章是否存在
+	index, err := getArticleIndexById(articleId)
+	if err != nil {
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Failed to get article index in list. ")
+		
+		return string(resultJSON)
+	} 
+
+	if index != -1 {
+		// 文章已存在
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Already-exist this article in list. ")
+		
+		return string(resultJSON)
+	} 
+	
+	_, err = client.HMSet(articleId, map[string]interface{} {
 		"title": article.Title,
 		"content": article.Content,
 		"classify": article.Classify,
 		"readcount": "0",
-		"time": currentTime, // 时间需要修改
+		"time": currentTime, 
 		}).Result()
-	// fmt.Println(string(val))
 	if err != nil {
-		return "[{id: 'bu ok'}]"
-		// panic(err)
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Failed to add article in hash. ")
+		
+		return string(resultJSON)
 	}
 
 	_, err = client.LPush(listName, articleId).Result()
 	if err != nil {
-		return "[{result: 'bu ok'}]"
-		// panic(err)
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Failed to add article in list. ")
+		
+		return string(resultJSON)
 	}
 
-	article.Id 	= articleId
-	// article.Info = info
-	// article.Title		= val["title"]
-	// article.Content 	= val["content"]
+	article.Id 			= articleId
 	article.Time		= currentTime
 	article.ReadCount 	= "0"
-	// article.Classify	= val["classify"]
 
-	result, err := json.Marshal(article)
+	articleJSON, err := json.Marshal(article)
 	if err != nil {
-		panic(err)
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Failed to get article JSON. ")
+		
+		return string(resultJSON)
 	}
+	
+	resultJSON := getResultJSON(&result, "article", string(articleJSON))
 
-
-	// return "[" + string(result) + "]"
-	return string(result)
+	return string(resultJSON)
 }
 
 func UpdateArticle(inputs []byte) string {
@@ -188,7 +203,7 @@ func DeleteArticle(inputs []byte) string {
 	// 查询准备删除的文章是否存在
 	index, err := getArticleIndexById(article.Id)
 	if err != nil {
-		resultJSON := getResultJSON(&result, true, 
+		resultJSON := getResultJSON(&result, "error", 
 			"ERROR: Failed to get article index in list. ")
 		
 		return string(resultJSON)
@@ -196,7 +211,7 @@ func DeleteArticle(inputs []byte) string {
 
 	if index == -1 {
 		// 文章不存在
-		resultJSON := getResultJSON(&result, true, 
+		resultJSON := getResultJSON(&result, "error", 
 			"ERROR: Non-exist this article in list. ")
 		
 		return string(resultJSON)
@@ -212,7 +227,7 @@ func DeleteArticle(inputs []byte) string {
 	_, err = client.LRem(listName, searchDirection, article.Id).Result()
 
 	if err != nil {
-		resultJSON := getResultJSON(&result, true, 
+		resultJSON := getResultJSON(&result, "error", 
 			"ERROR: Failed to delete article id in list. ")
 		
 		return string(resultJSON)
@@ -221,7 +236,7 @@ func DeleteArticle(inputs []byte) string {
 
 	_, err = client.Del(article.Id).Result()
 	if err != nil {
-		resultJSON := getResultJSON(&result, true, 
+		resultJSON := getResultJSON(&result, "error", 
 			"ERROR: Failed to delete article in hash. ")
 
 		return string(resultJSON)
@@ -229,20 +244,20 @@ func DeleteArticle(inputs []byte) string {
 
 	listLength, _ = client.LLen(listName).Result()
 
-	resultJSON := getResultJSON(&result, false, article.Id)
+	resultJSON := getResultJSON(&result, "article", article.Id)
 	
 	return string(resultJSON)
 }
 
 func getArticleIndexById(articleId string) (int64, error) {
-	articles, err := client.LRange(listName, 0, -1).Result()
+	articlesId, err := client.LRange(listName, 0, -1).Result()
 	if err != nil {
 		// 获取数据库数据出错
 		return int64(-1), err
 	}
 
-	for i := 0; i < len(articles); i++ {
-		if articles[i] == articleId {
+	for i := 0; i < len(articlesId); i++ {
+		if articlesId[i] == articleId {
 			// 找到索引并返回
 			return int64(i), nil
 		}
@@ -260,27 +275,32 @@ func getArticleId(articleTitle string) string {
 	return hex.EncodeToString(hasher.Sum(b))
 }
 
-func getArticleJSON(key string, val map[string]string) string {
+func getArticleJSON(key string, val map[string]string) []byte {
 	var article Article
-	article.Id 	= key
+
+	article.Id 			= key
 	article.Title		= val["title"]
 	article.Content 	= val["content"]
 	article.Time		= val["time"]
 	article.ReadCount 	= val["readcount"]
 	article.Classify	= val["classify"]
 
-	result, err := json.Marshal(article)
+	articleJSON, err := json.Marshal(article)
 	if err != nil {
 		panic(err)
 	}
 
-	return string(result)
+	return articleJSON
 }
 
-func getResultJSON(result *Result, err bool, info string) []byte {
-	result.Error = err
-	result.Info = info
-	resultJSON, _ := json.Marshal(result)
+func getResultJSON(result *Result, resultType string, resultInfo string) []byte {
+	result.Type = resultType
+	result.Info = resultInfo
+
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		// LOG
+	}
 
 	return resultJSON
 }
