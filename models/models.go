@@ -91,6 +91,8 @@ func AddArticle(inputs []byte) string {
 	var article Article
 	var result Result
 
+	// 增加报错回滚机制
+
 	json.Unmarshal(inputs, &article)
 
 	articleId := getArticleId(article.Title)
@@ -155,40 +157,106 @@ func AddArticle(inputs []byte) string {
 
 func UpdateArticle(inputs []byte) string {
 	var article Article
+	var result Result
 	json.Unmarshal(inputs, &article)
 
 	// 做操作前先保存一个temp
+	var tmpArticle map[string]string
+	tmpArticle, err := client.HGetAll(article.Id).Result()
+	if err != nil {
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Failed to get old article data in hash. ")
+
+		return string(resultJSON)
+	}
+
 	// 记得修正数据结构，在传输过程中通过id控制数据
 	// 在前端应该加一层校验，如果没有做修改，就不需要回传了
 	// 因为是根据文章标题进行判断，所以先要检测是否修改标题
 	articleId := getArticleId(article.Title)
+	// 标题做了修改
 	if articleId != article.Id {
-		// 标题做了修改
 		// 修改链表value
+		// 获取原文章所在index
+		index, err := getArticleIndexById(article.Id)
+		if err != nil {
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Failed to get article index in list. ")
+		
+		return string(resultJSON)
+		}
+
+		_, err = client.LSet(listName, index, articleId).Result()
+		if err != nil {
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Failed to set article in list. ")
+
+		return string(resultJSON)
+		}
+
+		// 获取旧数据
+		// oldArticle, err := client.HGetAll(article.Id).Result()
+		// if err != nil {
+		// resultJSON := getResultJSON(&result, "error", 
+		// 	"ERROR: Failed to get old article data in hash. ")
+
+		// return string(resultJSON)
+		// }
+
+		// 备份旧数据
+		article.Time = tmpArticle["time"]
+		article.ReadCount = oldArticle.ReadCount
+		_, err = client.HMSet(articleId, map[string]interface{} {
+			"id": articleId,
+			"time": oldArticle["time"],
+			"readcount": oldArticle["readcount"],
+		}).Result()
+		if err != nil {
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Failed to backup article in hash. ")
+
+		return string(resultJSON)
+		}
+
 		// 删除原来的hash
+		_, err = client.Del(article.Id).Result()
+		if err != nil {
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Failed to delete article in hash. ")
+
+		return string(resultJSON)
+		}
+
 	} 
 
-	// 获取旧数据
-
-	// 更新新数据
+	// 无论标题改变与否，统一处理hash的变化
+	// 更新新数据，处理hash
 	_, err := client.HMSet(articleId, map[string]interface{} {
-		"title": article.Title,
-		"content": article.Content,
-		"classify": article.Classify,
-		}).Result()
-	// fmt.Println(string(val))
+	"title": article.Title,
+	"content": article.Content,
+	"classify": article.Classify,
+	}).Result()
 	if err != nil {
-		return "[{result: 'bu ok'}]"
-		// panic(err)
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Failed to backup article in hash. ")
+
+		return string(resultJSON)
 	}
 
-	// 返回新id, readcount
+	article.Id 			= articleId
 
-	// _, err = client.LPush(listName, article.Id).Result()
-	// if err != nil {
-	// 	return "[{result: 'bu ok'}]"
-	// 	// panic(err)
-	// }
+	articleJSON, err := json.Marshal(article)
+	if err != nil {
+		resultJSON := getResultJSON(&result, "error", 
+			"ERROR: Failed to get article JSON. ")
+		
+		return string(resultJSON)
+	}
+	
+	resultJSON := getResultJSON(&result, "article", string(articleJSON))
+
+	return string(resultJSON)
+	getArticleJSON(articleId)
 
 	return "[{result: 'update ok'}]"
 }
